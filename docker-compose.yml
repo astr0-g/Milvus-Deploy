@@ -1,3 +1,4 @@
+version: '3.5'
 
 services:
   etcd:
@@ -16,22 +17,17 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
-    # 安全：不暴露etcd端口到主机
-    # ports:
-    #   - "2379:2379"
+    networks:
+      - milvus-network
 
   minio:
     container_name: milvus-minio
     image: minio/minio:RELEASE.2023-03-20T20-16-18Z
     environment:
-      # 使用自定义的MinIO凭据
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
     ports:
-      # 只在需要时暴露MinIO控制台
       - "9001:9001"
-      # 生产环境建议不暴露9000端口到外部
-      # - "9000:9000"
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data
     command: minio server /minio_data --console-address ":9001"
@@ -40,6 +36,8 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+    networks:
+      - milvus-network
 
   standalone:
     container_name: milvus-standalone
@@ -48,8 +46,8 @@ services:
     security_opt:
     - seccomp:unconfined
     environment:
-      ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
+      ETCD_ENDPOINTS: milvus-etcd:2379  # 使用容器名称
+      MINIO_ADDRESS: milvus-minio:9000  # 使用容器名称
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
       - ./milvus.yaml:/milvus/configs/milvus.yaml
@@ -61,30 +59,42 @@ services:
       retries: 3
     ports:
       - "19530:19530"
-      # Web UI - 生产环境建议通过反向代理访问
       - "9091:9091"
     depends_on:
-      - "etcd"
-      - "minio"
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - milvus-network
 
   # 自动安全初始化服务
   security-init:
     container_name: milvus-security-init
-    build:
-      context: .
-      dockerfile: Dockerfile.milvus-init
+    image: python:3.9-slim
     volumes:
-      - .:/app  # 用于保存密码文件
+      - ./secure_init.py:/secure_init.py
+      - .:/app
     working_dir: /app
+    environment:
+      - MILVUS_HOST=milvus-standalone  # 使用容器名称
+      - MILVUS_PORT=19530
+    command: >
+      bash -c "
+        echo '🔒 开始安全初始化...' &&
+        pip install pymilvus &&
+        python /secure_init.py &&
+        echo '✅ 安全初始化完成'
+      "
     depends_on:
       standalone:
         condition: service_healthy
-    restart: "no"  # 只运行一次
-    environment:
-      - PYTHONUNBUFFERED=1
+    restart: "no"
+    networks:
+      - milvus-network
 
+# 显式定义网络
 networks:
-  default:
+  milvus-network:
+    driver: bridge
     name: milvus
-
-#

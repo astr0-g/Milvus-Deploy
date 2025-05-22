@@ -7,6 +7,7 @@ import time
 import secrets
 import string
 from pymilvus import connections, utility
+import os
 
 def generate_secure_password(length=16):
     """生成安全密码"""
@@ -18,24 +19,28 @@ def secure_milvus_setup():
     """安全设置Milvus"""
     print("🔒 开始Milvus安全初始化...")
     
+    # 从环境变量获取连接信息
+    host = os.environ.get("MILVUS_HOST", "localhost")
+    port = int(os.environ.get("MILVUS_PORT", "19530"))
+    
     # 等待服务启动
     max_retries = 30
     for i in range(max_retries):
         try:
             connections.connect(
                 alias="default",
-                host="localhost",
-                port=19530,
+                host=host,
+                port=port,
                 user="root",
                 password="Milvus"  # 使用默认密码连接
             )
-            print("✅ 连接到Milvus成功")
+            print(f"✅ 连接到Milvus成功 ({host}:{port})")
             break
         except Exception as e:
-            print(f"⏳ 等待Milvus启动... ({i+1}/{max_retries})")
+            print(f"⏳ 等待Milvus启动... ({i+1}/{max_retries}) - {str(e)[:50]}")
             time.sleep(2)
             if i == max_retries - 1:
-                raise Exception("无法连接到Milvus服务")
+                raise Exception(f"无法连接到Milvus服务: {e}")
     
     try:
         # 1. 立即修改root密码

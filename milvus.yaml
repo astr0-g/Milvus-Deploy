@@ -1,43 +1,104 @@
-# milvus.yaml - 启用认证的配置文件
+# milvus.yaml - 生产级安全配置文件
 
-# 启用用户认证
+# ====== 安全配置 ======
 common:
   security:
-    authorizationEnabled: true  # 启用认证
-    # 超级用户配置（可选）
+    # 启用用户认证（必须）
+    authorizationEnabled: true
+    
+    # 超级用户配置
     superUsers:
       - root
-      # - admin  # 可以添加其他超级用户
+      # 可以添加其他管理员用户
+      # - admin
+    
+    # TLS配置（生产环境推荐）
+    # tlsMode: 1  # 0=禁用, 1=单向TLS, 2=双向TLS
+    # serverPemPath: /path/to/server.pem
+    # serverKeyPath: /path/to/server.key
+    # caPemPath: /path/to/ca.pem
 
-# 其他配置保持默认
+# ====== 存储配置 ======
 etcd:
   endpoints:
-    - etcd:2379
+    - milvus-etcd:2379  # 使用完整的容器名称
+  rootPath: by-dev
+  metaSubPath: meta
+  kvSubPath: kv
+  # etcd安全配置（如果需要）
+  # username: ""
+  # password: ""
+  # use_ssl: false
 
 minio:
-  address: minio
+  address: milvus-minio  # 使用完整的容器名称
   port: 9000
   accessKeyID: minioadmin
   secretAccessKey: minioadmin
   useSSL: false
   bucketName: a-bucket
+  # rootPath: files
 
-# 日志配置
+# ====== 日志配置 ======
 log:
-  level: info
+  level: info  # debug, info, warn, error
   file:
-    rootPath: ""
-    maxSize: 300
-    maxAge: 10
+    rootPath: ""  # 空字符串表示输出到stdout
+    maxSize: 300  # MB
+    maxAge: 10    # 天
     maxBackups: 20
-  format: text
+  format: text  # text 或 json
 
-# 性能配置
+# ====== 性能调优配置 ======
+# 数据节点配置
 dataNode:
   dataSync:
     flushManager:
-      insertBufSize: 16777216
-
+      insertBufSize: 16777216  # 16MB
+      
+# 查询节点配置  
 queryNode:
   stats:
-    publishInterval: 1000
+    publishInterval: 1000  # ms
+  segcore:
+    chunkRows: 1024
+
+# 代理配置
+proxy:
+  timeTickInterval: 200  # ms
+  msgStream:
+    timeTick:
+      bufSize: 512
+
+# ====== 内存配置 ======
+# GPU内存池配置（如果使用GPU）
+gpu:
+  initMemSize: 0      # 初始内存大小(MB)，0表示自动
+  maxMemSize: 0       # 最大内存大小(MB)，0表示自动
+
+# ====== 其他配置 ======
+# 限制配置
+quotaAndLimits:
+  ddl:
+    collectionRate: 10     # 每秒最多创建的集合数
+    partitionRate: 10      # 每秒最多创建的分区数
+  dml:
+    insertRate: -1         # 插入速率限制，-1表示无限制
+    deleteRate: -1         # 删除速率限制
+  dql:
+    searchRate: -1         # 搜索速率限制
+    queryRate: -1          # 查询速率限制
+
+# Knowhere索引配置
+knowhere:
+  simdType: auto  # auto, avx512, avx2, sse4_2
+
+# ====== 监控配置 ======
+# 指标配置
+metrics:
+  port: 9091
+
+# 链路追踪（可选）
+# trace:
+#   jaeger:
+#     url: http://jaeger:14268/api/traces
