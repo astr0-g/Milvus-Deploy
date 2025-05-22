@@ -1,10 +1,9 @@
-# 使用host网络模式，避免Docker网络DNS问题
+version: '3.5'
 
 services:
   etcd:
     container_name: milvus-etcd
-    image: quay.io/coreos/etcd:v3.5.5
-    network_mode: host
+    image: quay.io/coreos/etcd:v3.5.18
     environment:
       - ETCD_AUTO_COMPACTION_MODE=revision
       - ETCD_AUTO_COMPACTION_RETENTION=1000
@@ -12,21 +11,22 @@ services:
       - ETCD_SNAPSHOT_COUNT=50000
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd
-    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 30s
       timeout: 20s
       retries: 3
-    restart: "always"
-    
+
   minio:
     container_name: milvus-minio
     image: minio/minio:RELEASE.2023-03-20T20-16-18Z
-    network_mode: host
     environment:
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "9001:9001"
+      - "9000:9000"
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data
     command: minio server /minio_data --console-address ":9001"
@@ -35,55 +35,31 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
-    restart: "always"
+
   standalone:
     container_name: milvus-standalone
-    image: milvusdb/milvus:v2.5.11
-    network_mode: host
+    image: milvusdb/milvus:v2.5.12
     command: ["milvus", "run", "standalone"]
     security_opt:
     - seccomp:unconfined
     environment:
-      # 使用localhost，因为所有服务都在host网络中
-      ETCD_ENDPOINTS: localhost:2379
-      MINIO_ADDRESS: localhost:9000
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
-      - ./milvus.yaml:/milvus/configs/milvus.yaml
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
       interval: 30s
       start_period: 90s
       timeout: 20s
       retries: 3
+    ports:
+      - "19530:19530"
+      - "9091:9091"
     depends_on:
-      etcd:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    restart: "always"
-    
+      - "etcd"
+      - "minio"
 
-  # 安全初始化服务
-  security-init:
-    container_name: milvus-security-init
-    image: python:3.9-slim
-    network_mode: host
-    volumes:
-      - ./secure_init.py:/secure_init.py
-      - .:/app
-    working_dir: /app
-    environment:
-      - MILVUS_HOST=localhost
-      - MILVUS_PORT=19530
-    command: >
-      bash -c "
-        echo '🔒 开始安全初始化...' &&
-        pip install pymilvus &&
-        python /secure_init.py &&
-        echo '✅ 安全初始化完成'
-      "
-    depends_on:
-      standalone:
-        condition: service_healthy
-    restart: "no"
+networks:
+  default:
+    name: milvus
