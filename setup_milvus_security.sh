@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # deploy_milvus.sh - Milvus安全部署脚本 (Host网络模式)
-
 set -e  # 遇到错误立即退出
 
 echo "🚀 开始部署Milvus (Host网络模式)..."
