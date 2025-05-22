@@ -1,0 +1,43 @@
+# milvus.yaml - 启用认证的配置文件
+
+# 启用用户认证
+common:
+  security:
+    authorizationEnabled: true  # 启用认证
+    # 超级用户配置（可选）
+    superUsers:
+      - root
+      # - admin  # 可以添加其他超级用户
+
+# 其他配置保持默认
+etcd:
+  endpoints:
+    - etcd:2379
+
+minio:
+  address: minio
+  port: 9000
+  accessKeyID: minioadmin
+  secretAccessKey: minioadmin
+  useSSL: false
+  bucketName: a-bucket
+
+# 日志配置
+log:
+  level: info
+  file:
+    rootPath: ""
+    maxSize: 300
+    maxAge: 10
+    maxBackups: 20
+  format: text
+
+# 性能配置
+dataNode:
+  dataSync:
+    flushManager:
+      insertBufSize: 16777216
+
+queryNode:
+  stats:
+    publishInterval: 1000
