@@ -21,13 +21,13 @@ common:
 # ====== 存储配置 ======
 etcd:
   endpoints:
-    - 172.20.0.2:2379  # 使用固定IP地址
+    - localhost:2379  # host网络模式使用localhost
   rootPath: by-dev
   metaSubPath: meta
   kvSubPath: kv
 
 minio:
-  address: 172.20.0.3  # 使用固定IP地址
+  address: localhost  # host网络模式使用localhost
   port: 9000
   accessKeyID: minioadmin
   secretAccessKey: minioadmin
