@@ -1,4 +1,4 @@
-# 移除version字段（Docker Compose v2不再需要）
+# 简化版本 - 使用固定IP避免DNS问题
 
 services:
   etcd:
@@ -18,7 +18,8 @@ services:
       timeout: 20s
       retries: 3
     networks:
-      - milvus-net
+      milvus-net:
+        ipv4_address: 172.20.0.2
 
   minio:
     container_name: milvus-minio
@@ -37,7 +38,8 @@ services:
       timeout: 20s
       retries: 3
     networks:
-      - milvus-net
+      milvus-net:
+        ipv4_address: 172.20.0.3
 
   standalone:
     container_name: milvus-standalone
@@ -46,8 +48,9 @@ services:
     security_opt:
     - seccomp:unconfined
     environment:
-      ETCD_ENDPOINTS: milvus-etcd:2379  # 使用容器名称
-      MINIO_ADDRESS: milvus-minio:9000  # 使用容器名称
+      # 使用IP地址而不是主机名
+      ETCD_ENDPOINTS: 172.20.0.2:2379
+      MINIO_ADDRESS: 172.20.0.3:9000
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
       - ./milvus.yaml:/milvus/configs/milvus.yaml
@@ -66,9 +69,10 @@ services:
       minio:
         condition: service_healthy
     networks:
-      - milvus-net
+      milvus-net:
+        ipv4_address: 172.20.0.4
 
-  # 自动安全初始化服务
+  # 安全初始化服务
   security-init:
     container_name: milvus-security-init
     image: python:3.9-slim
@@ -77,7 +81,7 @@ services:
       - .:/app
     working_dir: /app
     environment:
-      - MILVUS_HOST=milvus-standalone  # 使用容器名称
+      - MILVUS_HOST=172.20.0.4  # 使用Milvus的IP
       - MILVUS_PORT=19530
     command: >
       bash -c "
@@ -91,9 +95,14 @@ services:
         condition: service_healthy
     restart: "no"
     networks:
-      - milvus-net
+      milvus-net:
+        ipv4_address: 172.20.0.5
 
-# 使用新的网络名称避免冲突
+# 使用自定义网络和固定IP段
 networks:
   milvus-net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1

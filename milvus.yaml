@@ -21,23 +21,18 @@ common:
 # ====== 存储配置 ======
 etcd:
   endpoints:
-    - milvus-etcd:2379  # 使用完整的容器名称
+    - 172.20.0.2:2379  # 使用固定IP地址
   rootPath: by-dev
   metaSubPath: meta
   kvSubPath: kv
-  # etcd安全配置（如果需要）
-  # username: ""
-  # password: ""
-  # use_ssl: false
 
 minio:
-  address: milvus-minio  # 使用完整的容器名称
+  address: 172.20.0.3  # 使用固定IP地址
   port: 9000
   accessKeyID: minioadmin
   secretAccessKey: minioadmin
   useSSL: false
   bucketName: a-bucket
-  # rootPath: files
 
 # ====== 日志配置 ======
 log:
