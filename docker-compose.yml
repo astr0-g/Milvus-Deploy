@@ -1,4 +1,4 @@
-version: '3.5'
+# 移除version字段（Docker Compose v2不再需要）
 
 services:
   etcd:
@@ -18,7 +18,7 @@ services:
       timeout: 20s
       retries: 3
     networks:
-      - milvus-network
+      - milvus-net
 
   minio:
     container_name: milvus-minio
@@ -37,7 +37,7 @@ services:
       timeout: 20s
       retries: 3
     networks:
-      - milvus-network
+      - milvus-net
 
   standalone:
     container_name: milvus-standalone
@@ -66,7 +66,7 @@ services:
       minio:
         condition: service_healthy
     networks:
-      - milvus-network
+      - milvus-net
 
   # 自动安全初始化服务
   security-init:
@@ -91,10 +91,9 @@ services:
         condition: service_healthy
     restart: "no"
     networks:
-      - milvus-network
+      - milvus-net
 
-# 显式定义网络
+# 使用新的网络名称避免冲突
 networks:
-  milvus-network:
+  milvus-net:
     driver: bridge
-    name: milvus
